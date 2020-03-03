@@ -29,10 +29,10 @@ r = np.power(2, expectedRates) - 1
 φ = np.max([expectedRates[0] / (a[0] - a[1] * r[0]), r[1] / a[1]])
 
 # OMA
-PoutTheoretical = [
-    1 - np.exp(- 2 * (2 ** (2 * expectedRates[0]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[0])),
-    1 - 2 * np.exp(- (2 ** (2 * expectedRates[1]) - 1) / ρ / λ[1]) + np.exp(- 2 * (2 ** (2 * expectedRates[1]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[1]))
-]
+#PoutTheoretical = [
+#    1 - np.exp(- 2 * (2 ** (2 * expectedRates[0]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[0])),
+#    1 - 2 * np.exp(- (2 ** (2 * expectedRates[1]) - 1) / ρ / λ[1]) + np.exp(- 2 * (2 ** (2 * expectedRates[1]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[1]))
+#]
 
 # NOMA - Outdated CSI
 PoutTheoretical = [
