@@ -27,7 +27,7 @@ SNR = np.linspace(0, 40, 100)
 ρ = 1 / σ ** 2
 λ = 1 / (1 + np.power(d, zeta))
 r = np.power(2, expectedRates) - 1
-φ = np.max([expectedRates[0] / (a[0] - a[1] * r[0]), r[1] / a[1]])
+φ = np.max([r[0] / (a[0] - a[1] * r[0]), r[1] / a[1]])
 
 # OMA
 #PoutTheoretical = [
