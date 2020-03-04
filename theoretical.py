@@ -22,9 +22,10 @@ d = [
 
 # Calculate theoretical values
 SNR = np.linspace(0, 40, 100)
+#SNR = 10
 σ = 10 ** (- SNR / 20)
 ρ = 1 / σ ** 2
-λ = 1 / (1 + np.sqrt(np.power(d, zeta)))
+λ = 1 / (1 + np.power(d, zeta))
 r = np.power(2, expectedRates) - 1
 φ = np.max([expectedRates[0] / (a[0] - a[1] * r[0]), r[1] / a[1]])
 
@@ -46,7 +47,7 @@ PoutTheoretical = [
 #    1 - np.exp(- r[0] * σ ** 2 / λ[1])
 #]
 
-print(PoutTheoretical[0])
+print(PoutTheoretical)
 
 
 # Draw the plots

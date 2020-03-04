@@ -21,22 +21,27 @@ d = [
 ]
 
 SNR = 30  # SNR in decibels
-totalFrames = 100000
+totalFrames = 50000
 successfulFrames = np.array([0, 0])
+
+# TODO: Use a convergence metric?
 
 for frame in tqdm(range(totalFrames)):
     # Step 1: Calculate g of channel for each user
-    h = np.random.normal(0, 1, (2, 2)) @ [1, 1j]
-    g = h / (1 + np.sqrt(np.power(d, zeta)))
+    h = np.random.normal(0, np.sqrt(2) / 2, (2, 2)) @ [1, 1j]
+    g = np.divide(h, np.sqrt(1 + np.power(d, zeta)))
 
     # Step 2: Calculate AWGN
     σ = 10 ** (- SNR / 20)
-    n = np.random.normal(0, σ)
+    n = np.random.normal(0, σ, 2)
 
     # Step 3: Calculate reception SNR
     # Note: We are using the actual noise value n, instead of just the SNR-based σ
-    SNRvv = a[1] * np.abs(g[1])**2 / n**2
-    SNRuu = a[0] * np.abs(g[0])**2 / (a[1] * np.abs(g[0])**2 + n**2)
+    SNRuu = a[0] * np.abs(g[0])**2 / (a[1] * np.abs(g[0])**2 + σ**2)
+    SNRvv = a[1] * np.abs(g[1])**2 / σ**2
+    SNRvu = a[0] * np.abs(g[1])**2 / (a[1] * np.abs(g[1])**2 + σ**2)
+    SNRvv += SNRvu
+
 
     # Step 4: Calculate reception rates
     receiverRates = [
@@ -44,11 +49,19 @@ for frame in tqdm(range(totalFrames)):
         np.log2(1 + SNRvv)
     ]
 
+    #if SNRvv >= 3:
+    #    logging.error("aa")
+
+
     successfulFrames += np.greater_equal(receiverRates, expectedRates)
 
+    aaa = np.greater_equal(receiverRates, expectedRates)
+    #if not aaa[1]:
+    #    logging.error(aaa)
+
     # End the simulation early if we have found 1000 frames
-    if np.all(np.greater_equal(frame - successfulFrames, 1000)):
-        break
+    #if np.all(np.greater_equal(frame - successfulFrames, 1000)):
+    #    break
 
 logging.debug('Completed after {} iterations'.format(frame))
 logging.info('Packet success: {} / {}'.format(successfulFrames, totalFrames))
@@ -58,7 +71,7 @@ logging.info('Outage rate v: {:.2e}'.format(1 - successfulFrames[1] / totalFrame
 # Calculate theoretical values
 σ = 10 ** (- SNR / 20)
 ρ = 1 / σ ** 2
-λ = 1 / (1 + np.sqrt(np.power(d, zeta)))
+λ = 1 / (1 + np.power(d, zeta))
 r = np.power(2, expectedRates) - 1
 φ = np.max([expectedRates[0] / (a[0] - a[1] * r[0]), r[1] / a[1]])
 
