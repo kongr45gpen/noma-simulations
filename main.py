@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 
 logging.basicConfig(level=logging.DEBUG)
 
-τ = 1  # time correlation coefficient
-t = 1  # number of frs wrong
+τ = 0.6  # time correlation coefficient
+t = 3  # number of frs wrong
 expectedRates = [
     0.585,  # delay-critical user u
     2  # delay-tolerant user v
@@ -23,7 +23,7 @@ d = [
 ]
 
 SNR = 10  # SNR in decibels
-totalFrames = 200000
+totalFrames = 20000
 successfulFrames = np.array([0, 0])
 
 # TODO: Use a convergence metric?
@@ -38,6 +38,11 @@ for frame in tqdm(range(totalFrames)):
     if np.abs(h[0]) ** 2 > np.abs(h[1]) ** 2:
         h[1], h[0] = h[0], h[1]
         g = np.divide(h, np.sqrt(1 + np.power(d, zeta)))
+
+    # Step 1.5: Apply time-correlated small fading coefficient
+    ω = np.random.normal(0, np.sqrt(2) / 2, (2, 2)) @ [1, 1j]
+    h = τ ** t * h + np.sqrt(1 - τ ** (2 * t)) * ω
+    g = np.divide(h, np.sqrt(1 + np.power(d, zeta)))
 
     # Step 2: Calculate AWGN
     σ = 10 ** (- SNR / 20)
