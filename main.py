@@ -1,6 +1,7 @@
 import logging
 import numpy as np
 from tqdm import tqdm
+from simulation import Simulation
 
 import matplotlib.pyplot as plt
 
