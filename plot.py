@@ -24,6 +24,7 @@ d = [
 
 plotPoints = [[], []]
 
+
 def iteration(parameters, context):
     SNR = parameters["SNR"]
     τ = parameters["τ"]
@@ -69,6 +70,11 @@ def iteration(parameters, context):
     # if np.all(np.greater_equal(frame - successfulFrames, 10000)) and np.all(np.greater_equal(successfulFrames, 10000)):
     #    break
 
+
+def initialize(parameters, context):
+    context["successfulFrames"] = np.array([0, 0])
+
+
 def finalize(parameters, context):
     SNR = parameters["SNR"]
     τ = parameters["τ"]
@@ -82,7 +88,6 @@ def finalize(parameters, context):
     plotPoints[1].append(1 - successfulFrames[1] / totalFrames)
 
     logging.debug('Completed after {} iterations'.format(totalFrames))
-    logging.info('SNR = {}, τ = {}'.format(SNR, τ))
     logging.info('Packet success: {} / {}'.format(successfulFrames, totalFrames))
     logging.info('Outage rate u: {:.2e}'.format(1 - successfulFrames[0] / totalFrames))
     logging.info('Outage rate v: {:.2e}'.format(1 - successfulFrames[1] / totalFrames))
@@ -103,13 +108,11 @@ def finalize(parameters, context):
     logging.info('Theor. Outage rate u: {:.2e}'.format(PoutTheoretical[0]))
     logging.info('Theor. Outage rate v: {:.2e}'.format(PoutTheoretical[1]))
 
-    context["successfulFrames"] = np.array([0, 0])
 
 simulation = Simulation(parameters={
     "SNR": np.arange(0, 45, 5),
     "τ": [0.6, 1]
-}, function=iteration, finish=finalize, max_iterations=20000)
-simulation.context["successfulFrames"] = np.array([0, 0])
+}, function=iteration, initialize=initialize, finish=finalize, max_iterations=20000)
 
 simulation.run()
 
