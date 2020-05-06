@@ -66,6 +66,10 @@ def iteration(parameters, context):
         receiverRates[1] >= expectedRates[1] and receiverRates[2] >= expectedRates[0]
     ]
 
+    # TODO: Don't calculate every time
+    context["Outage rate (u)"] = '{:.2e}'.format(1 - context["successfulFrames"][0] / (context["iteration"] + 1))
+    context["Outage rate (v)"] = '{:.2e}'.format(1 - context["successfulFrames"][1] / (context["iteration"] + 1))
+
     # End the simulation early if we have found 1000 failed frames
     # if np.all(np.greater_equal(frame - successfulFrames, 10000)) and np.all(np.greater_equal(successfulFrames, 10000)):
     #    break
@@ -87,10 +91,10 @@ def finalize(parameters, context):
     plotPoints[0].append(SNR)
     plotPoints[1].append(1 - successfulFrames[1] / totalFrames)
 
-    #logging.debug('Completed after {} iterations'.format(totalFrames))
-    #logging.info('Packet success: {} / {}'.format(successfulFrames, totalFrames))
-    #logging.info('Outage rate u: {:.2e}'.format(1 - successfulFrames[0] / totalFrames))
-    #logging.info('Outage rate v: {:.2e}'.format(1 - successfulFrames[1] / totalFrames))
+    # logging.debug('Completed after {} iterations'.format(totalFrames))
+    # logging.info('Packet success: {} / {}'.format(successfulFrames, totalFrames))
+    # logging.info('Outage rate u: {:.2e}'.format(1 - successfulFrames[0] / totalFrames))
+    # logging.info('Outage rate v: {:.2e}'.format(1 - successfulFrames[1] / totalFrames))
 
     # Calculate theoretical values
     σ = 10 ** (- SNR / 20)
@@ -105,14 +109,15 @@ def finalize(parameters, context):
         1 - 2 * np.exp(- φ * σ ** 2 / λ[1]) + np.exp(- 2 * φ * σ ** 2 / (2 - τ ** (2 * t)) / λ[1])
     ]
 
-    #logging.info('Theor. Outage rate u: {:.2e}'.format(PoutTheoretical[0]))
-    #logging.info('Theor. Outage rate v: {:.2e}'.format(PoutTheoretical[1]))
+    # logging.info('Theor. Outage rate u: {:.2e}'.format(PoutTheoretical[0]))
+    # logging.info('Theor. Outage rate v: {:.2e}'.format(PoutTheoretical[1]))
 
 
 simulation = Simulation(parameters={
     "SNR": np.arange(0, 45, 5),
     "τ": [0.6, 1]
-}, function=iteration, initialize=initialize, finish=finalize, max_iterations=20000)
+}, function=iteration, initialize=initialize, finish=finalize, max_iterations=50000,
+    interesting_fields=["Outage rate (u)", "Outage rate (v)"])
 
 simulation.run()
 
