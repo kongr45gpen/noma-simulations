@@ -87,10 +87,10 @@ def finalize(parameters, context):
     plotPoints[0].append(SNR)
     plotPoints[1].append(1 - successfulFrames[1] / totalFrames)
 
-    logging.debug('Completed after {} iterations'.format(totalFrames))
-    logging.info('Packet success: {} / {}'.format(successfulFrames, totalFrames))
-    logging.info('Outage rate u: {:.2e}'.format(1 - successfulFrames[0] / totalFrames))
-    logging.info('Outage rate v: {:.2e}'.format(1 - successfulFrames[1] / totalFrames))
+    #logging.debug('Completed after {} iterations'.format(totalFrames))
+    #logging.info('Packet success: {} / {}'.format(successfulFrames, totalFrames))
+    #logging.info('Outage rate u: {:.2e}'.format(1 - successfulFrames[0] / totalFrames))
+    #logging.info('Outage rate v: {:.2e}'.format(1 - successfulFrames[1] / totalFrames))
 
     # Calculate theoretical values
     σ = 10 ** (- SNR / 20)
@@ -105,8 +105,8 @@ def finalize(parameters, context):
         1 - 2 * np.exp(- φ * σ ** 2 / λ[1]) + np.exp(- 2 * φ * σ ** 2 / (2 - τ ** (2 * t)) / λ[1])
     ]
 
-    logging.info('Theor. Outage rate u: {:.2e}'.format(PoutTheoretical[0]))
-    logging.info('Theor. Outage rate v: {:.2e}'.format(PoutTheoretical[1]))
+    #logging.info('Theor. Outage rate u: {:.2e}'.format(PoutTheoretical[0]))
+    #logging.info('Theor. Outage rate v: {:.2e}'.format(PoutTheoretical[1]))
 
 
 simulation = Simulation(parameters={

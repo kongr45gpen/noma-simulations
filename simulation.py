@@ -1,6 +1,7 @@
 import itertools
+import datetime
 import tqdm
-from tabulate import tabulate
+import tabulate
 
 
 class Simulation:
@@ -14,6 +15,7 @@ class Simulation:
         self.max_iterations = max_iterations
         self.interesting_fields = interesting_fields
         self.context = {}
+        self.__last_table_lines = -1
 
     def run(self):
         parameter_sets = itertools.product(*self.parameters.values())
@@ -29,9 +31,16 @@ class Simulation:
             if self.initialize:
                 self.initialize(parameter_set, context)
 
-            for iteration in tqdm.trange(self.max_iterations, postfix=parameter_string):
+            last_update_time = datetime.datetime.now()
+
+            #for iteration in tqdm.trange(self.max_iterations, postfix=parameter_string):
+            for iteration in range(self.max_iterations):
                 context["iteration"] = iteration
                 self.run_one(parameter_set, context)
+
+                if datetime.datetime.now() - last_update_time > datetime.timedelta(milliseconds=100):
+                    self.print_table()
+                    last_update_time = datetime.datetime.now()
 
             if self.finish:
                 self.finish(parameter_set, context)
@@ -44,7 +53,7 @@ class Simulation:
     def print_table(self):
         parameter_sets = itertools.product(*self.parameters.values())
 
-        headers = list(self.parameters.keys()) + self.interesting_fields
+        headers = list(self.parameters.keys()) + ["Progress"] + self.interesting_fields
         table = []
 
         for parameter_tuple in parameter_sets:
@@ -55,7 +64,17 @@ class Simulation:
             parameter_set = {list(self.parameters.keys())[i]: v for i, v in enumerate(parameter_tuple)}
 
             context = self.context[hash(parameter_tuple)]
-            table.append(list(parameter_tuple) + list(context[k] for k in self.interesting_fields))
+            percentage = "{:8.3f}".format(100 * context["iteration"] / (self.max_iterations - 1))
+            table.append(list(parameter_tuple) + [percentage]
+                         + list(context[k] for k in self.interesting_fields))
 
-        print(headers)
-        print(tabulate(table, headers=headers, showindex="always"))
+        tabulate.PRESERVE_WHITESPACE = True
+        table_text = tabulate.tabulate(table, headers=headers, showindex="always", tablefmt="orgtbl", disable_numparse=True, stralign="right")
+
+        if self.__last_table_lines >= 0:
+            print("\x1B[{}A".format(self.__last_table_lines + 1), end='')
+            print("\x1B[0K\r", end='')
+        print(table_text)
+        self.__last_table_lines = table_text.count('\n')
+
+
