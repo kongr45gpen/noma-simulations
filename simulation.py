@@ -33,7 +33,6 @@ class Simulation:
         futures = []
 
         manager = multiprocessing.Manager()
-        lock = manager.Lock()
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
             for parameter_tuple in parameter_sets:
@@ -46,7 +45,7 @@ class Simulation:
                     "max_iterations": self.max_iterations
                 })
 
-                future = executor.submit(self.run_parameter_set, parameter_set, context, lock)
+                future = executor.submit(self.run_parameter_set, parameter_set, context)
                 future.add_done_callback(Simulation.__run__callback)
 
                 futures.append(future)
@@ -56,7 +55,7 @@ class Simulation:
                 finished, pending = concurrent.futures.wait(futures, timeout=0.1,
                                                             return_when=concurrent.futures.ALL_COMPLETED)
 
-                self.print_table(len(pending), len(finished), lock)
+                self.print_table(len(pending), len(finished))
 
                 if len(pending) == 0:
                     break
@@ -70,8 +69,7 @@ class Simulation:
             log.error("Task ended in error: {}".format(err))
             future.result()
 
-    def run_parameter_set(self, parameter_set, context, lock):
-        # with lock:
+    def run_parameter_set(self, parameter_set, context):
         if self.initialize:
             self.initialize(parameter_set, context)
         local_context = copy.deepcopy(context)
@@ -85,7 +83,6 @@ class Simulation:
                 for key, value in local_context.items():
                     context[key] = value
 
-        # with lock:
         for key, value in local_context.items():
             context[key] = value
         if self.finish:
@@ -96,7 +93,7 @@ class Simulation:
     def run_one(self, parameters, context):
         return self.function(parameters, context)
 
-    def print_table(self, pending, finished, lock):
+    def print_table(self, pending, finished):
         parameter_sets = itertools.product(*self.parameters.values())
 
         headers = list(self.parameters.keys()) + ["Progress"] + self.interesting_fields
@@ -109,15 +106,14 @@ class Simulation:
             # Sanitize parameter set, including variable names
             parameter_set = {list(self.parameters.keys())[i]: v for i, v in enumerate(parameter_tuple)}
 
-            with lock:
-                context = self.context[hash(parameter_tuple)]
+            context = copy.deepcopy(self.context[hash(parameter_tuple)])
 
-                if 'iteration' not in context:
-                    continue
+            if 'iteration' not in context:
+                continue
 
-                percentage = "{:8.3f}".format(100 * context["iteration"] / (context["max_iterations"] - 1))
-                table.append(list(parameter_tuple) + [percentage] + list(
-                    context[k] if k in context else '' for k in self.interesting_fields))
+            percentage = "{:8.3f}".format(100 * context["iteration"] / (context["max_iterations"] - 1))
+            table.append(list(parameter_tuple) + [percentage] + list(
+                context[k] if k in context else '' for k in self.interesting_fields))
             # context = {
             #     "Outage rate (u)": 5,
             #     "Outage rate (v)": 6,
