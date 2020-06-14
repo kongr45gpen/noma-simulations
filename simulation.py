@@ -26,12 +26,14 @@ class Simulation:
         self.interesting_fields = interesting_fields
         self.context = {}
         self.__last_table_lines = -1
-        self.__lock = multiprocessing.Lock()
 
     def run(self):
         parameter_sets = itertools.product(*self.parameters.values())
 
         futures = []
+
+        manager = multiprocessing.Manager()
+        lock = manager.Lock()
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
             for parameter_tuple in parameter_sets:
@@ -40,11 +42,11 @@ class Simulation:
                 # Create a string explaining the current parameter set
                 parameter_string = ', '.join(map(lambda kv: "{}: {}".format(kv[0], kv[1]), parameter_set.items()))
 
-                context = self.context[hash(parameter_tuple)] = {
+                context = self.context[hash(parameter_tuple)] = manager.dict({
                     "max_iterations": self.max_iterations
-                }
+                })
 
-                future = executor.submit(self.run_parameter_set, parameter_set, context)
+                future = executor.submit(self.run_parameter_set, parameter_set, context, lock)
                 future.add_done_callback(Simulation.__run__callback)
 
                 futures.append(future)
@@ -54,9 +56,7 @@ class Simulation:
                 finished, pending = concurrent.futures.wait(futures, timeout=0.1,
                                                             return_when=concurrent.futures.ALL_COMPLETED)
 
-                log.debug("[{}, {}]".format(len(finished), len(pending)))
-
-                # self.print_table()
+                self.print_table(len(pending), len(finished), lock)
 
                 if len(pending) == 0:
                     break
@@ -68,36 +68,35 @@ class Simulation:
         if future.exception() is not None:
             err = future.exception()
             log.error("Task ended in error: {}".format(err))
+            future.result()
 
-        else:
-            log.debug("Task done")
-
-    def run_parameter_set(self, parameter_set, context):
-        with self.__lock:
-            if self.initialize:
-                self.initialize(parameter_set, context)
-            local_context = copy.copy(context)
+    def run_parameter_set(self, parameter_set, context, lock):
+        # with lock:
+        if self.initialize:
+            self.initialize(parameter_set, context)
+        local_context = copy.deepcopy(context)
 
         # for iteration in tqdm.trange(self.max_iterations, postfix=parameter_string):
         for iteration in range(local_context["max_iterations"]):
-            print("iter")
-            context["iteration"] = iteration
-            self.run_one(parameter_set, context)
+            local_context["iteration"] = iteration
+            self.run_one(parameter_set, local_context)
 
-            # if iteration % 10 == 0:
-            # context = copy.copy(local_context)
+            if iteration % 100 == 0:
+                for key, value in local_context.items():
+                    context[key] = value
 
-        with self.__lock:
-            # context = copy.copy(local_context)
-            if self.finish:
-                self.finish(parameter_set, context)
+        # with lock:
+        for key, value in local_context.items():
+            context[key] = value
+        if self.finish:
+            self.finish(parameter_set, context)
 
         return 5
 
     def run_one(self, parameters, context):
         return self.function(parameters, context)
 
-    def print_table(self):
+    def print_table(self, pending, finished, lock):
         parameter_sets = itertools.product(*self.parameters.values())
 
         headers = list(self.parameters.keys()) + ["Progress"] + self.interesting_fields
@@ -110,7 +109,7 @@ class Simulation:
             # Sanitize parameter set, including variable names
             parameter_set = {list(self.parameters.keys())[i]: v for i, v in enumerate(parameter_tuple)}
 
-            with self.__lock:
+            with lock:
                 context = self.context[hash(parameter_tuple)]
 
                 if 'iteration' not in context:
@@ -130,7 +129,8 @@ class Simulation:
                                        disable_numparse=True, stralign="right")
 
         if self.__last_table_lines >= 0:
-            print("\x1B[{}A".format(self.__last_table_lines + 1), end='')
+            print("\x1B[{}A".format(self.__last_table_lines + 2), end='')
             print("\x1B[0K\r", end='')
+        print("Task progress: {}/{}".format(finished, finished + pending))
         print(table_text)
         self.__last_table_lines = table_text.count('\n')

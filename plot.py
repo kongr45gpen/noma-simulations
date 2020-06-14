@@ -5,6 +5,10 @@ from simulation import Simulation
 
 import matplotlib.pyplot as plt
 
+import signal
+import sys
+signal.signal(signal.SIGINT, lambda x, y: sys.exit(0))
+
 logging.basicConfig(level=logging.INFO)
 
 t = 3  # number of frs wrong
@@ -155,4 +159,4 @@ if __name__ == "__main__":
     plt.xlabel('SNR (dB)')
     plt.ylabel('Outage Probability')
 
-    plt.show()
+    # plt.show()
