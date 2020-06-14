@@ -113,45 +113,46 @@ def finalize(parameters, context):
     # logging.info('Theor. Outage rate v: {:.2e}'.format(PoutTheoretical[1]))
 
 
-simulation = Simulation(parameters={
-    "SNR": np.arange(0, 45, 5),
-    "τ": [0.6, 1]
-}, function=iteration, initialize=initialize, finish=finalize, max_iterations=50000,
-    interesting_fields=["Outage rate (u)", "Outage rate (v)"])
+if __name__ == "__main__":
+    simulation = Simulation(parameters={
+        "SNR": np.arange(0, 45, 5),
+        "τ": [0.6, 1]
+    }, function=iteration, initialize=initialize, finish=finalize, max_iterations=10000,
+        interesting_fields=["Outage rate (u)", "Outage rate (v)"])
 
-simulation.run()
+    simulation.run()
 
-# Calculate theoretical values
-λ = 1 / (1 + np.power(d, zeta))
-r = np.power(2, expectedRates) - 1
-φ = np.max([r[0] / (a[0] - a[1] * r[0]), r[1] / a[1]])
+    # Calculate theoretical values
+    λ = 1 / (1 + np.power(d, zeta))
+    r = np.power(2, expectedRates) - 1
+    φ = np.max([r[0] / (a[0] - a[1] * r[0]), r[1] / a[1]])
 
-fig, ax = plt.subplots()  # initializes plotting
+    fig, ax = plt.subplots()  # initializes plotting
 
-SNR = np.linspace(0, 40, 100)
-σ = 10 ** (- SNR / 20)
-ρ = 1 / σ ** 2
+    SNR = np.linspace(0, 40, 100)
+    σ = 10 ** (- SNR / 20)
+    ρ = 1 / σ ** 2
 
-for τ in [0.6, 1]:
-    PoutTheoreticalNOMA = [
-        1 - np.exp(- 2 * r[0] * σ ** 2 / (2 - τ ** (2 * t)) / (a[0] - a[1] * r[0]) / λ[0]),
-        1 - 2 * np.exp(- φ * σ ** 2 / λ[1]) + np.exp(- 2 * φ * σ ** 2 / (2 - τ ** (2 * t)) / λ[1])
-    ]
-    PoutTheoreticalOMA = [
-        1 - np.exp(- 2 * (2 ** (2 * expectedRates[0]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[0])),
-        1 - 2 * np.exp(- (2 ** (2 * expectedRates[1]) - 1) / ρ / λ[1]) + np.exp(
-            - 2 * (2 ** (2 * expectedRates[1]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[1]))
-    ]
-    ax.semilogy(SNR, PoutTheoreticalNOMA[0], label='NOMA, User $u$, τ = {}'.format(τ))
-    ax.semilogy(SNR, PoutTheoreticalNOMA[1], label='NOMA, User $v$, τ = {}'.format(τ))
-    ax.semilogy(SNR, PoutTheoreticalOMA[0], label='OMA, User $u$, τ = {}'.format(τ))
-    ax.semilogy(SNR, PoutTheoreticalOMA[1], label='OMA, User $v$, τ = {}'.format(τ))
+    for τ in [0.6, 1]:
+        PoutTheoreticalNOMA = [
+            1 - np.exp(- 2 * r[0] * σ ** 2 / (2 - τ ** (2 * t)) / (a[0] - a[1] * r[0]) / λ[0]),
+            1 - 2 * np.exp(- φ * σ ** 2 / λ[1]) + np.exp(- 2 * φ * σ ** 2 / (2 - τ ** (2 * t)) / λ[1])
+        ]
+        PoutTheoreticalOMA = [
+            1 - np.exp(- 2 * (2 ** (2 * expectedRates[0]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[0])),
+            1 - 2 * np.exp(- (2 ** (2 * expectedRates[1]) - 1) / ρ / λ[1]) + np.exp(
+                - 2 * (2 ** (2 * expectedRates[1]) - 1) / ((2 - τ ** (2 * t)) * ρ * λ[1]))
+        ]
+        ax.semilogy(SNR, PoutTheoreticalNOMA[0], label='NOMA, User $u$, τ = {}'.format(τ))
+        ax.semilogy(SNR, PoutTheoreticalNOMA[1], label='NOMA, User $v$, τ = {}'.format(τ))
+        ax.semilogy(SNR, PoutTheoreticalOMA[0], label='OMA, User $u$, τ = {}'.format(τ))
+        ax.semilogy(SNR, PoutTheoreticalOMA[1], label='OMA, User $v$, τ = {}'.format(τ))
 
-ax.semilogy(plotPoints[0], plotPoints[1], 'gD')
+    ax.semilogy(plotPoints[0], plotPoints[1], 'gD')
 
-ax.grid()
-ax.legend()
-plt.xlabel('SNR (dB)')
-plt.ylabel('Outage Probability')
+    ax.grid()
+    ax.legend()
+    plt.xlabel('SNR (dB)')
+    plt.ylabel('Outage Probability')
 
-plt.show()
+    plt.show()

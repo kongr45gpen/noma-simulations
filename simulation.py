@@ -2,11 +2,12 @@ import itertools
 import datetime
 import tqdm
 import tabulate
-import threading
+import multiprocessing
 import concurrent.futures
 import time
 import logging
 import copy
+import traceback
 
 log = logging.getLogger(name='python-simulation')
 log.setLevel(logging.DEBUG)
@@ -25,14 +26,14 @@ class Simulation:
         self.interesting_fields = interesting_fields
         self.context = {}
         self.__last_table_lines = -1
-        self.__lock = threading.Lock()
+        self.__lock = multiprocessing.Lock()
 
     def run(self):
         parameter_sets = itertools.product(*self.parameters.values())
 
         futures = []
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
             for parameter_tuple in parameter_sets:
                 # Sanitize parameter set, including variable names
                 parameter_set = {list(self.parameters.keys())[i]: v for i, v in enumerate(parameter_tuple)}
@@ -43,19 +44,33 @@ class Simulation:
                     "max_iterations": self.max_iterations
                 }
 
-                futures.append(executor.submit(self.run_parameter_set, parameter_set, context))
+                future = executor.submit(self.run_parameter_set, parameter_set, context)
+                future.add_done_callback(Simulation.__run__callback)
+
+                futures.append(future)
                 log.debug("Submitting job {}".format(parameter_tuple))
 
             while True:
                 finished, pending = concurrent.futures.wait(futures, timeout=0.1,
                                                             return_when=concurrent.futures.ALL_COMPLETED)
 
-                self.print_table()
+                log.debug("[{}, {}]".format(len(finished), len(pending)))
+
+                # self.print_table()
 
                 if len(pending) == 0:
                     break
 
         # self.print_table()
+
+    @staticmethod
+    def __run__callback(future):
+        if future.exception() is not None:
+            err = future.exception()
+            log.error("Task ended in error: {}".format(err))
+
+        else:
+            log.debug("Task done")
 
     def run_parameter_set(self, parameter_set, context):
         with self.__lock:
@@ -65,6 +80,7 @@ class Simulation:
 
         # for iteration in tqdm.trange(self.max_iterations, postfix=parameter_string):
         for iteration in range(local_context["max_iterations"]):
+            print("iter")
             context["iteration"] = iteration
             self.run_one(parameter_set, context)
 
