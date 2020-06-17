@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 
 import signal
 import sys
+
 signal.signal(signal.SIGINT, lambda x, y: sys.exit(0))
 
 logging.basicConfig(level=logging.INFO)
@@ -25,8 +26,6 @@ d = [
     2,  # distance of user u
     1  # distance of user v
 ]
-
-plotPoints = [[], []]
 
 
 def iteration(parameters, context):
@@ -83,17 +82,17 @@ def initialize(parameters, context):
     context["successfulFrames"] = np.array([0, 0])
 
 
-def finalize(parameters, context):
+def finalize(parameters, context, global_context):
     SNR = parameters["SNR"]
     τ = parameters["τ"]
     successfulFrames = context["successfulFrames"]
     totalFrames = context["iteration"]
 
     # Append to the plot
-    plotPoints[0].append(SNR)
-    plotPoints[1].append(1 - successfulFrames[0] / totalFrames)
-    plotPoints[0].append(SNR)
-    plotPoints[1].append(1 - successfulFrames[1] / totalFrames)
+    global_context["plotPoints"][0].append(SNR)
+    global_context["plotPoints"][1].append(1 - successfulFrames[0] / totalFrames)
+    global_context["plotPoints"][0].append(SNR)
+    global_context["plotPoints"][1].append(1 - successfulFrames[1] / totalFrames)
 
     # logging.debug('Completed after {} iterations'.format(totalFrames))
     # logging.info('Packet success: {} / {}'.format(successfulFrames, totalFrames))
@@ -121,10 +120,13 @@ if __name__ == "__main__":
     simulation = Simulation(parameters={
         "SNR": np.arange(0, 45, 5),
         "τ": [0.6, 1]
-    }, function=iteration, initialize=initialize, finish=finalize, max_iterations=10000,
+    }, function=iteration, initialize=initialize, finish=finalize, max_iterations=100000,
+        initial_global_context={"plotPoints": [[], []]},
         interesting_fields=["Outage rate (u)", "Outage rate (v)"])
 
     simulation.run()
+
+    plotPoints = simulation.get_global_context()["plotPoints"]
 
     # Calculate theoretical values
     λ = 1 / (1 + np.power(d, zeta))
@@ -159,4 +161,4 @@ if __name__ == "__main__":
     plt.xlabel('SNR (dB)')
     plt.ylabel('Outage Probability')
 
-    # plt.show()
+    plt.show()

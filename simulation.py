@@ -15,7 +15,7 @@ log.setLevel(logging.DEBUG)
 
 class Simulation:
     def __init__(self, parameters, function, finish=None, initialize=None, max_iterations=10000,
-                 interesting_fields=None):
+                 interesting_fields=None, initial_global_context={}):
         if interesting_fields is None:
             interesting_fields = ["iteration"]
         self.parameters = parameters
@@ -24,10 +24,12 @@ class Simulation:
         self.finish = finish
         self.max_iterations = max_iterations
         self.interesting_fields = interesting_fields
-        self.context = {}
+        self.context = {
+            "global": initial_global_context
+        }
         self.__last_table_lines = -1
 
-    def run(self):
+    def run(self, display_table=True):
         parameter_sets = itertools.product(*self.parameters.values())
 
         futures = []
@@ -35,6 +37,8 @@ class Simulation:
         manager = multiprocessing.Manager()
 
         with concurrent.futures.ProcessPoolExecutor(max_workers=None) as executor:
+            self.context["global"] = manager.dict(self.context["global"])
+
             for parameter_tuple in parameter_sets:
                 # Sanitize parameter set, including variable names
                 parameter_set = {list(self.parameters.keys())[i]: v for i, v in enumerate(parameter_tuple)}
@@ -45,7 +49,7 @@ class Simulation:
                     "max_iterations": self.max_iterations
                 })
 
-                future = executor.submit(self.run_parameter_set, parameter_set, context)
+                future = executor.submit(self.run_parameter_set, parameter_set, context, self.context["global"], manager.Lock())
                 future.add_done_callback(Simulation.__run__callback)
 
                 futures.append(future)
@@ -55,7 +59,8 @@ class Simulation:
                 finished, pending = concurrent.futures.wait(futures, timeout=0.1,
                                                             return_when=concurrent.futures.ALL_COMPLETED)
 
-                self.print_table(len(pending), len(finished))
+                if display_table:
+                    self.print_table(len(pending), len(finished))
 
                 if len(pending) == 0:
                     break
@@ -69,26 +74,32 @@ class Simulation:
             log.error("Task ended in error: {}".format(err))
             future.result()
 
-    def run_parameter_set(self, parameter_set, context):
+    def run_parameter_set(self, parameter_set, context, global_context, gc_lock):
         if self.initialize:
             self.initialize(parameter_set, context)
+        # Create a local context that can be edited without annoying the parent context
         local_context = copy.deepcopy(context)
 
-        # for iteration in tqdm.trange(self.max_iterations, postfix=parameter_string):
+        # Run each iteration
         for iteration in range(local_context["max_iterations"]):
             local_context["iteration"] = iteration
             self.run_one(parameter_set, local_context)
 
+            # After some time has passed, update the global context (which acquires the lock and slows down the other threads)
             if iteration % 100 == 0:
                 for key, value in local_context.items():
                     context[key] = value
 
+        # For the final iteration, copy the context once again
         for key, value in local_context.items():
             context[key] = value
-        if self.finish:
-            self.finish(parameter_set, context)
 
-        return 5
+        if self.finish:
+            with gc_lock:
+                local_global_context = copy.deepcopy(global_context)
+                self.finish(parameter_set, context, local_global_context)
+                for key, value in local_global_context.items():
+                    global_context[key] = value
 
     def run_one(self, parameters, context):
         return self.function(parameters, context)
@@ -130,3 +141,6 @@ class Simulation:
         print("Task progress: {}/{}".format(finished, finished + pending))
         print(table_text)
         self.__last_table_lines = table_text.count('\n')
+
+    def get_global_context(self):
+        return self.context["global"]
