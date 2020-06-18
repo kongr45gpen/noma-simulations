@@ -8,6 +8,7 @@ import time
 import logging
 import copy
 import traceback
+import math
 
 log = logging.getLogger(name='python-simulation')
 log.setLevel(logging.DEBUG)
@@ -78,7 +79,12 @@ class Simulation:
         """Compares a set of current and future values to see if we have "converged enough" to the desired result"""
 
         if self.convergence is None:
+            # convergence test disabled
             return False
+
+        # if iteration < 100:
+            # too few iterations to consider done
+            # return False
 
         converged = True
 
@@ -95,7 +101,7 @@ class Simulation:
                     break
                 else:
                     difference = (old - new) / old
-                    if abs(difference) > self.convergence:
+                    if math.exp(abs(difference)) > math.exp(self.convergence):
                         converged = False
                         break
             else:
