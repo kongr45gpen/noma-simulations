@@ -15,7 +15,9 @@ log.setLevel(logging.DEBUG)
 
 class Simulation:
     def __init__(self, parameters, function, finish=None, initialize=None, max_iterations=10000,
-                 interesting_fields=None, initial_global_context={}):
+                 interesting_fields=None, initial_global_context=None, convergence=0.00005):
+        if initial_global_context is None:
+            initial_global_context = {}
         if interesting_fields is None:
             interesting_fields = ["iteration"]
         self.parameters = parameters
@@ -24,8 +26,9 @@ class Simulation:
         self.finish = finish
         self.max_iterations = max_iterations
         self.interesting_fields = interesting_fields
+        self.convergence = convergence
         self.context = {
-            "global": initial_global_context
+            "global": initial_global_context or {}
         }
         self.__last_table_lines = -1
 
@@ -46,10 +49,12 @@ class Simulation:
                 parameter_string = ', '.join(map(lambda kv: "{}: {}".format(kv[0], kv[1]), parameter_set.items()))
 
                 context = self.context[hash(parameter_tuple)] = manager.dict({
-                    "max_iterations": self.max_iterations
+                    "max_iterations": self.max_iterations,
+                    "status": "Queued"
                 })
 
-                future = executor.submit(self.run_parameter_set, parameter_set, context, self.context["global"], manager.Lock())
+                future = executor.submit(self.run_parameter_set, parameter_set, context, self.context["global"],
+                                         manager.Lock())
                 future.add_done_callback(Simulation.__run__callback)
 
                 futures.append(future)
@@ -65,7 +70,39 @@ class Simulation:
                 if len(pending) == 0:
                     break
 
-        # self.print_table()
+    def __get_interesting_values(self, context):
+        """Filters a context, returning only the interesting values"""
+        return {key: value for (key, value) in context.items() if key in self.interesting_fields}
+
+    def __test_convergence(self, current_values, new_values, iteration):
+        """Compares a set of current and future values to see if we have "converged enough" to the desired result"""
+
+        if self.convergence is None:
+            return False
+
+        converged = True
+
+        for field in self.interesting_fields:
+            if field in current_values and field in new_values:
+                old = current_values[field]
+                new = new_values[field]
+
+                if old == new:
+                    converged = False
+                    break
+                elif old == 0 or new == 0:
+                    converged = False
+                    break
+                else:
+                    difference = (old - new) / old
+                    if abs(difference) > self.convergence:
+                        converged = False
+                        break
+            else:
+                converged = False
+                break
+
+        return converged
 
     @staticmethod
     def __run__callback(future):
@@ -79,9 +116,11 @@ class Simulation:
             self.initialize(parameter_set, context)
         # Create a local context that can be edited without annoying the parent context
         local_context = copy.deepcopy(context)
+        local_context["status"] = "Started"
 
         # Run each iteration
         for iteration in range(local_context["max_iterations"]):
+            previous_values = self.__get_interesting_values(local_context)
             local_context["iteration"] = iteration
             self.run_one(parameter_set, local_context)
 
@@ -90,7 +129,12 @@ class Simulation:
                 for key, value in local_context.items():
                     context[key] = value
 
+            # Check if convergence is satisfied and stop the loop
+            if self.__test_convergence(previous_values, local_context, iteration):
+                break
+
         # For the final iteration, copy the context once again
+        local_context["status"] = "Done"
         for key, value in local_context.items():
             context[key] = value
 
@@ -122,9 +166,12 @@ class Simulation:
             if 'iteration' not in context:
                 continue
 
-            percentage = "{:8.3f}".format(100 * context["iteration"] / (context["max_iterations"] - 1))
+            if context["status"] == "Done":
+                percentage = '{:8}'.format("Done")
+            else:
+                percentage = "{:8.3f}".format(100 * context["iteration"] / (context["max_iterations"] - 1))
             table.append(list(parameter_tuple) + [percentage] + list(
-                context[k] if k in context else '' for k in self.interesting_fields))
+                '{:.2e}'.format(context[k]) if k in context else '' for k in self.interesting_fields))
             # context = {
             #     "Outage rate (u)": 5,
             #     "Outage rate (v)": 6,

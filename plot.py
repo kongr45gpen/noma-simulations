@@ -70,8 +70,8 @@ def iteration(parameters, context):
     ]
 
     # TODO: Don't calculate every time
-    context["Outage rate (u)"] = '{:.2e}'.format(1 - context["successfulFrames"][0] / (context["iteration"] + 1))
-    context["Outage rate (v)"] = '{:.2e}'.format(1 - context["successfulFrames"][1] / (context["iteration"] + 1))
+    context["Outage rate (u)"] = 1 - context["successfulFrames"][0] / (context["iteration"] + 1)
+    context["Outage rate (v)"] = 1 - context["successfulFrames"][1] / (context["iteration"] + 1)
 
     # End the simulation early if we have found 1000 failed frames
     # if np.all(np.greater_equal(frame - successfulFrames, 10000)) and np.all(np.greater_equal(successfulFrames, 10000)):
